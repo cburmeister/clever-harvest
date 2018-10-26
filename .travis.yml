@@ -1,9 +1,14 @@
 stages:
+  - test
   - deploy
 jobs:
   include:
+    - stage: test
+      script:
+        - env
     - stage: deploy
       if: branch = master
+      if: type != pull_request
       script:
         - eval "$(ssh-agent -s)" # start the ssh agent
         - echo -e $RESIN_DEPLOY_KEY > id_rsa

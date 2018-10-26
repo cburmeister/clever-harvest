@@ -8,6 +8,18 @@ Pi deployed via [resin.io](https://resin.io/).
 
 ---
 
+## Metrics
+
+An image is captured at regular intervals annotated with the following metrics:
+
+- A UTC timestamp
+- The relative humidity
+- The temperature
+- Whether or not the soil contains moisture
+
+The image is captured entirely in memory before it is shipped to s3. The
+metrics data is appended to a google sheet.
+
 ## Hardware
 
 - Any [Raspberry Pi](http://a.co/d/hdHM1Nb) model
