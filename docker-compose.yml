@@ -2,7 +2,7 @@ version: '2'
 services:
 
   sensor:
-    build: .
+    build: ./sensor
     command: >
       bash -c "
       python measurement.py
