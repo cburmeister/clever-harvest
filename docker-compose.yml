@@ -1,0 +1,29 @@
+version: '2'
+services:
+
+  sensor:
+    build: .
+    command: >
+      bash -c "
+      python measurement.py
+      --dht22=$CLEVER_HARVEST_DHT22_PIN
+      --google-api-client-secret-json=\"$CLEVER_HARVEST_GOOGLE_API_CLIENT_SECRET_JSON\"
+      --image
+      --image-rotation=$CLEVER_HARVEST_IMAGE_ROTATION
+      --moisture-pin=$CLEVER_HARVEST_MOISTURE_PIN
+      --s3-access-key-id=$CLEVER_HARVEST_S3_ACCESS_KEY_ID
+      --s3-bucket=$CLEVER_HARVEST_S3_BUCKET_NAME
+      --s3-secret-access-key=$CLEVER_HARVEST_S3_SECRET_ACCESS_KEY
+      --title=$CLEVER_HARVEST_TITLE
+      "
+    environment:
+      - CLEVER_HARVEST_DHT22_PIN
+      - CLEVER_HARVEST_GOOGLE_API_CLIENT_SECRET_JSON
+      - CLEVER_HARVEST_IMAGE_ROTATION
+      - CLEVER_HARVEST_MOISTURE_PIN
+      - CLEVER_HARVEST_S3_ACCESS_KEY_ID
+      - CLEVER_HARVEST_S3_BUCKET_NAME
+      - CLEVER_HARVEST_S3_SECRET_ACCESS_KEY
+      - CLEVER_HARVEST_TITLE
+    privileged: true
+    restart: always

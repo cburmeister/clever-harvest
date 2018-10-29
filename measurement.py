@@ -3,10 +3,10 @@ Take a measurement from the connected sensors and record the results.
 """
 from collections import OrderedDict
 from datetime import datetime
+import argparse
 import io
 import json
 import logging
-import os
 import subprocess
 import sys
 import time
@@ -26,30 +26,17 @@ except Exception:
     raise ValueError('Failed to import and install Adafruit-DHT.')
 
 
-DHT22_PIN = int(os.environ.get('CLEVER_HARVEST_DHT22_PIN', 0))
-GOOGLE_API_CLIENT_SECRET_JSON = json.loads(
-    os.environ.get('CLEVER_HARVEST_GOOGLE_API_CLIENT_SECRET_JSON', {})
-)
-IMAGE_ROTATION = int(os.environ.get('CLEVER_HARVEST_IMAGE_ROTATION', 0))
-LOG_LEVEL = os.environ.get('CLEVER_HARVEST_LOG_LEVEL', 'INFO').upper()
-MOISTURE_PIN = int(os.environ.get('CLEVER_HARVEST_MOISTURE_PIN', 0))
-S3_ACCESS_KEY_ID = os.environ.get('CLEVER_HARVEST_S3_ACCESS_KEY_ID')
-S3_BUCKET_NAME = os.environ.get('CLEVER_HARVEST_S3_BUCKET_NAME')
-S3_SECRET_ACCESS_KEY = os.environ.get('CLEVER_HARVEST_S3_SECRET_ACCESS_KEY')
-TITLE = os.environ.get('CLEVER_HARVEST_TITLE')
-
-logging.basicConfig(stream=sys.stdout, level=LOG_LEVEL)
-
-
-def main():
+def main(args):
     now = datetime.utcnow()
+
+    logging.basicConfig(stream=sys.stdout, level='INFO')
 
     # Read the temperature and humidity from the connected DHT22 sensor
     humidity, temperature = None, None
-    if DHT22_PIN:
+    if args.dht22_pin:
         humidity, temperature = Adafruit_DHT.read_retry(
             Adafruit_DHT.DHT22,
-            DHT22_PIN
+            args.dht22_pin
         )
         if temperature:
             temperature = temperature * 9/5.0 + 32  # Convert to Fahrenheit
@@ -57,20 +44,24 @@ def main():
 
     # Determine if the soil is wet or dry
     moisture = None
-    if MOISTURE_PIN:
+    if args.moisture_pin:
         GPIO.setmode(GPIO.BCM)
-        GPIO.setup(MOISTURE_PIN, GPIO.IN)
-        moisture = not bool(GPIO.input(MOISTURE_PIN))
+        GPIO.setup(args.moisture_pin, GPIO.IN)
+        moisture = not bool(GPIO.input(args.moisture_pin))
 
     # Capture an image
     image_url = None
-    if all([S3_BUCKET_NAME, S3_ACCESS_KEY_ID, S3_SECRET_ACCESS_KEY]):
+    if all([
+        args.s3_bucket_name,
+        args.s3_access_key_id,
+        args.s3_secret_access_key
+    ]):
         try:
             image_stream = io.BytesIO()
             with picamera.PiCamera() as camera:
                 camera.start_preview()
                 camera.resolution = (1640, 1232)
-                camera.rotation = IMAGE_ROTATION
+                camera.rotation = args.image_rotation
                 camera.annotate_background = picamera.Color('black')
                 camera.annotate_text = '{} T: {} H: {}% S: {}'.format(
                     now,
@@ -87,17 +78,21 @@ def main():
         # Then ship it to s3
         try:
             now_as_string = now.strftime('%Y-%m-%dT%H:%M:%S%z')
-            key = '{}/{}.jpg'.format(TITLE, now_as_string)
+            key = '{}/{}.jpg'.format(args.title, now_as_string)
             s3 = boto3.client(
                 's3',
-                aws_access_key_id=S3_ACCESS_KEY_ID,
-                aws_secret_access_key=S3_SECRET_ACCESS_KEY,
+                aws_access_key_id=args.s3_access_key_id,
+                aws_secret_access_key=args.s3_secret_access_key,
             )
-            s3.put_object(Bucket=S3_BUCKET_NAME, Key=key, Body=image_stream)
+            s3.put_object(
+                Bucket=args.s3_bucket_name,
+                Key=key,
+                Body=image_stream
+            )
             image_url = s3.generate_presigned_url(
                 'get_object',
                 Params=dict(
-                    Bucket=S3_BUCKET_NAME,
+                    Bucket=args.s3_bucket_name,
                     Key=key,
                     ResponseContentType='image/jpeg',
                 ),
@@ -116,23 +111,53 @@ def main():
     logging.info(measurement)
 
     # Write the measurement to a google sheet
-    if GOOGLE_API_CLIENT_SECRET_JSON:
+    if args.google_api_client_secret_json:
         try:
             gspread_client = gspread.authorize(
                 ServiceAccountCredentials.from_json_keyfile_dict(
-                    GOOGLE_API_CLIENT_SECRET_JSON, [
+                    json.loads(args.google_api_client_secret_json), [
                         'https://www.googleapis.com/auth/drive',
                         'https://spreadsheets.google.com/feeds',
                     ]
                 )
             )
-            gsheet = gspread_client.open(TITLE).sheet1
+            gsheet = gspread_client.open(args.title).sheet1
             gsheet.append_row([x for x in measurement.values()])
         except Exception:
             logging.error('Error saving measurement: {}'.format(str(e)))
 
 
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        '--dht22-pin',
+        type=int,
+        help='take a reading from the DHT22 sensor on this pin',
+    )
+    parser.add_argument(
+        '--google-api-client-secret-json',
+        help='your google API secret credentials as JSON'
+    )
+    parser.add_argument(
+        '--image',
+        action='store_true',
+        help='capture an image with the connected camera module'
+    )
+    parser.add_argument(
+        '--image-rotation',
+        type=int,
+        help='rotate image taken by the given amount in degrees'
+    )
+    parser.add_argument(
+        '--moisture-pin',
+        type=int,
+        help='take a reading from the moisture sensor on this pin',
+    )
+    parser.add_argument('--s3-bucket-name', help='the name of the s3 bucket')
+    parser.add_argument('--s3-access-key-id', help='the s3 access key id')
+    parser.add_argument('--s3-secret-access-key', help='the s3 access key')
+    parser.add_argument('--title', help='title of the project')
+    args = parser.parse_args()
     while True:
-        main()
+        main(args)
         time.sleep(60 * 5)  # 5 Minutes
