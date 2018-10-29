@@ -1,4 +1,4 @@
-FROM resin/%%RESIN_MACHINE_NAME%%-python:3
+FROM resin/raspberry-pi2-python:3
 
 # See https://github.com/resin-io-projects/balena-rpi-python-picamera/issues/8
 ENV READTHEDOCS True
