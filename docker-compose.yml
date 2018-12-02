@@ -1,6 +1,5 @@
 version: '2'
 services:
-
   sensor:
     build: ./sensor
     command: >
@@ -25,5 +24,15 @@ services:
       - CLEVER_HARVEST_S3_BUCKET_NAME
       - CLEVER_HARVEST_S3_SECRET_ACCESS_KEY
       - CLEVER_HARVEST_TITLE
+    privileged: true
+    restart: always
+  web:
+    build: ./web
+    command: python -u app.py
+    environment:
+      - CLEVER_HARVEST_GOOGLE_API_CLIENT_SECRET_JSON
+      - CLEVER_HARVEST_TITLE
+    ports:
+      - "80:80"
     privileged: true
     restart: always

@@ -42,3 +42,4 @@ The following environment variables are *required*:
 | `CLEVER_HARVEST_S3_BUCKET_NAME`                | An S3 bucket name                        |
 | `CLEVER_HARVEST_S3_SECRET_ACCESS_KEY`          | An s3 secret access key                  |
 | `CLEVER_HARVEST_TITLE`                         | The title of the google sheet            |
+| `CLEVER_HARVEST_WEB_PASSWORD`                  | Password to access the dashboard         |
