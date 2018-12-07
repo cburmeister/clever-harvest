@@ -6,11 +6,14 @@ from flask import Flask, render_template
 from flask_httpauth import HTTPBasicAuth
 from oauth2client.service_account import ServiceAccountCredentials
 from pytz import timezone
+from werkzeug.contrib.cache import FileSystemCache
 import gspread
 
 app = Flask(__name__)
 
 auth = HTTPBasicAuth()
+
+cache = FileSystemCache('/tmp', default_timeout=60 * 10)  # 10 Minutes
 
 TITLE = os.environ.get('CLEVER_HARVEST_TITLE')
 GOOGLE_API_CLIENT_SECRET_JSON = os.environ.get(
@@ -27,7 +30,28 @@ def get_pw(username):
 
 @app.route('/')
 @auth.login_required
-def dashboard():
+def root():
+
+    # First attempt to get a cached response
+    cache_key = 'dashboard-data'
+    data = cache.get(cache_key)
+    if data:
+        data = json.loads(data)
+        return render_template('root.html', data=data)
+
+    return render_template('root.html')
+
+
+@app.route('/data')
+@auth.login_required
+def data():
+
+    # First attempt to get a cached response
+    cache_key = 'dashboard-data'
+    data = cache.get(cache_key)
+    if data:
+        data = json.loads(data)
+        return render_template('dashboard.html', data=data)
 
     # Get the measurements from the google spreadsheet
     gspread_client = gspread.authorize(
@@ -100,6 +124,7 @@ def dashboard():
         'last_image_path': last_row[-1],
         'title': TITLE,
     }
+    cache.set(cache_key, json.dumps(data))
     return render_template('dashboard.html', data=data)
 
 
