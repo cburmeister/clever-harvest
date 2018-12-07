@@ -1,10 +1,11 @@
-import os
 import json
+import os
 
-from flask import Flask
+from dateutil.parser import parse
+from flask import Flask, render_template
 from flask_httpauth import HTTPBasicAuth
-from jinja2 import Environment
 from oauth2client.service_account import ServiceAccountCredentials
+from pytz import timezone
 import gspread
 
 app = Flask(__name__)
@@ -17,35 +18,6 @@ GOOGLE_API_CLIENT_SECRET_JSON = os.environ.get(
     None
 )
 
-HTML = """
-<html>
-  <!DOCTYPE html>
-  <html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-    <title>Clever Harvest</title>
-    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/css/bootstrap.min.css">
-  </head>
-  <body>
-    <nav class="navbar navbar-dark bg-dark">
-      <span class="navbar-brand mb-0 h1">Clever Harvest</span>
-    </nav>
-    <div class="container mt-3">
-      <div class="row">
-        <div class="col-md-8 mb-3">
-          <div class="card">
-            <img class="card-img-top" src="{{ data.last_image_path }}" alt="{{ data.title }}">
-            <div class="card-body">
-              <h5 class="card-title mb-0">{{ data.title }}</h5>
-            </div>
-          </div>
-        </div>
-      </div>
-  </body>
-</html>
-"""
-
 
 @auth.get_password
 def get_pw(username):
@@ -57,7 +29,7 @@ def get_pw(username):
 @auth.login_required
 def dashboard():
 
-    # Get the last measurement from the google spreadsheet
+    # Get the measurements from the google spreadsheet
     gspread_client = gspread.authorize(
         ServiceAccountCredentials.from_json_keyfile_dict(
             json.loads(GOOGLE_API_CLIENT_SECRET_JSON), [
@@ -68,15 +40,67 @@ def dashboard():
     )
     gsheet = gspread_client.open(TITLE).sheet1
 
+    # Pluck out the last row so we can show the current environment
     all_values = gsheet.get_all_values()
-    data = dict(
-        last_image_path=all_values[-1][-1],
-        title=TITLE,
-    )
-    jinja_env = Environment()
-    return jinja_env\
-        .from_string(HTML)\
-        .render(data=data, trim_blocks=True)
+    last_row = all_values[-1]
+
+    # Setup some data for use with chart.js
+    charts = {}
+    sample_of_measurements = all_values[-12:]
+    labels = [
+        parse(x[0]).astimezone(timezone('US/Pacific')).strftime('%H:%M')
+        for x in sample_of_measurements
+    ]
+    charts = {
+        'temperature': {
+            'type': 'line',
+            'data': {
+                'labels': labels,
+                'datasets': [{
+                    'data': [float(x[2]) for x in sample_of_measurements],
+                    'label': 'Temperature ({})'.format(str(last_row[2])),
+                    'borderColor': '#3e95cd',
+                    'fill': False,
+                }],
+            },
+        },
+        'humidity': {
+            'type': 'line',
+            'data': {
+                'labels': labels,
+                'datasets': [{
+                    'data': [float(x[1]) for x in sample_of_measurements],
+                    'label': 'Humidity ({})'.format(str(last_row[1])),
+                    'borderColor': '#8e5ea2',
+                    'fill': False,
+                }],
+            },
+        },
+        'moisture': {
+            'type': 'line',
+            'data': {
+                'labels': labels,
+                'datasets': [{
+                    'data': [
+                        bool(x[3] == 'TRUE') for x in sample_of_measurements
+                    ],
+                    'label': 'Moisture ({})'.format(
+                        'Wet' if last_row[3] == 'TRUE' else 'Dry'
+                    ),
+                    'borderColor': '#e0a732',
+                    'fill': False,
+                }],
+            },
+        },
+    }
+
+    # Render the template with the following data
+    data = {
+        'charts': charts,
+        'last_image_path': last_row[-1],
+        'title': TITLE,
+    }
+    return render_template('dashboard.html', data=data)
 
 
 if __name__ == '__main__':
