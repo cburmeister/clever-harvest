@@ -4,7 +4,7 @@ clever-harvest
 [![Build Status](https://travis-ci.org/cburmeister/clever-harvest.svg?branch=master)](https://travis-ci.org/cburmeister/clever-harvest)
 
 Gather environmental metrics from an array of sensors connected to a Raspberry
-Pi deployed via [resin.io](https://resin.io/).
+Pi deployed via [balenaCloud](https://balena.io/).
 
 ---
 
@@ -43,3 +43,20 @@ The following environment variables are *required*:
 | `CLEVER_HARVEST_S3_SECRET_ACCESS_KEY`          | An s3 secret access key                  |
 | `CLEVER_HARVEST_TITLE`                         | The title of the google sheet            |
 | `CLEVER_HARVEST_WEB_PASSWORD`                  | Password to access the dashboard         |
+
+## Deployment
+
+Devices running this software managed with [balenaCloud](https://balena.io/).
+
+You'll need to configure an SSH key and add the balena git remote to your repository.
+
+Then you can deploy to all devices in the fleet with a simple `git push`:
+```bash
+git push balena master
+```
+
+### Continuous Integration
+
+Master builds of this repository are automatically deployed with [TravisCI](https://travis-ci.org/).
+
+See the `.travis.yml` configuration for more details on how this is automated.
