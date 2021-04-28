@@ -1,0 +1,32 @@
+version: 2
+updates:
+- package-ecosystem: pip
+  directory: "/sensor"
+  schedule:
+    interval: monthly
+    time: "13:00"
+  open-pull-requests-limit: 10
+  ignore:
+  - dependency-name: boto3
+    versions:
+    - 1.16.47
+    - 1.16.63
+  - dependency-name: google-auth
+    versions:
+    - 1.24.0
+  - dependency-name: gspread
+    versions:
+    - 3.6.0
+- package-ecosystem: pip
+  directory: "/web"
+  schedule:
+    interval: monthly
+    time: "13:00"
+  open-pull-requests-limit: 10
+  ignore:
+  - dependency-name: pytz
+    versions:
+    - "2020.5"
+  - dependency-name: gspread
+    versions:
+    - 3.6.0
